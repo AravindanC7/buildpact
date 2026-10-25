@@ -39,6 +39,8 @@ class Idea:
     ambition: set[str]
     min_hours: float     # weekly hours each member must be able to give
     weeks: int = 6
+    must_have: list[str] = field(default_factory=list)   # owner's hard skill requirements
+    question: str = ""   # owner's screening question, answered privately by opted-in candidates
 
 
 @dataclass
@@ -75,7 +77,8 @@ class Phase(str, Enum):
     """Where the team is in its life. The engine moves forward through these."""
     POOL = "pool"                 # collecting profiles
     SCREENING = "screening"       # stage 1: teaser out, fit checked privately
-    SHORTLISTED = "shortlisted"   # waiting for the owner to approve stage 2
+    SHORTLISTED = "shortlisted"   # invites out; waiting for opt-ins and the owner's decisions
+    KICKOFF = "kickoff"           # search closed; private room; kickoff meeting
     ROLES = "roles"               # stage 2 revealed, negotiating roles
     CHARTER = "charter"           # charter drafted, collecting signatures
     SIGNED = "signed"             # stage 3 revealed, team formed
@@ -129,13 +132,24 @@ class DM:
     user_id: str
     text: str
     buttons: list[Button] = field(default_factory=list)
+    meta: dict = field(default_factory=dict)   # e.g. {"kind": "offer"} so simulated students can reply
 
 
 @dataclass
 class Channel:
-    """A message on the shared negotiation table, posted by an agent."""
+    """A public message, posted by an agent. room: None = negotiation table,
+    "board" = the project board, "project" = the team's private project room."""
     agent_of: str | None      # user_id whose agent is speaking; None = system
+    text: str
+    room: str | None = None
+
+
+@dataclass
+class Room:
+    """Ask the transport to open a private room for a formed team."""
+    name: str
+    members: list[str]
     text: str
 
 
-Out = Union[DM, Channel]  # works on Python 3.8+
+Out = Union[DM, Channel, Room]  # works on Python 3.8+

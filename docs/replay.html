@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>BuildPact · Replay</title>
+<script>window.BP_REPLAY = "replay.json";</script>
+<style>
+  :root {
+    --bg: #0f1115; --panel: #171a21; --panel2: #1e222b; --line: #2a2f3a;
+    --text: #e8eaf0; --muted: #8b93a7; --accent: #7c8cff; --green: #3ecf8e;
+    --amber: #f5b14c; --red: #f06a6a; --vault: #2b2340; --vaultline: #4b3d73;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+         font: 14px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif; }
+  header { display: flex; align-items: center; gap: 18px; padding: 14px 22px;
+           border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+  .logo { font-weight: 800; font-size: 20px; letter-spacing: -.3px; }
+  .logo span { color: var(--accent); }
+  .idea { color: var(--muted); font-size: 13px; max-width: 420px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .steps { display: flex; gap: 4px; margin-left: auto; flex-wrap: wrap; }
+  .step { font-size: 11px; padding: 4px 9px; border-radius: 999px; background: var(--panel2); color: var(--muted);
+          border: 1px solid var(--line); }
+  .step.done { color: var(--text); border-color: #3a4152; }
+  .step.now { background: var(--accent); color: #0b0d12; border-color: var(--accent); font-weight: 700; }
+  .date { font-variant-numeric: tabular-nums; color: var(--muted); font-size: 12px; }
+  button.toggle { background: var(--vault); color: var(--text); border: 1px solid var(--vaultline);
+                  padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 600; }
+  main { display: grid; grid-template-columns: 1.05fr 1.2fr 1fr; gap: 14px; padding: 14px; height: calc(100vh - 62px); }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; display: flex;
+            flex-direction: column; min-height: 0; }
+  section > h2 { margin: 0; padding: 12px 14px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em;
+                 color: var(--muted); border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; }
+  .scroll { overflow-y: auto; padding: 12px; flex: 1; }
+  /* vaults */
+  .agent { border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; background: var(--panel2); overflow: hidden; }
+  .agent .top { display: flex; align-items: center; gap: 8px; padding: 9px 11px; }
+  .agent .name { font-weight: 700; }
+  .badge { font-size: 11px; padding: 2px 7px; border-radius: 999px; background: #262b36; color: var(--muted); }
+  .badge.role { background: #23304f; color: #b8c4ff; }
+  .badge.owner { background: #3a2f12; color: var(--amber); }
+  .vault { background: var(--vault); border-top: 1px dashed var(--vaultline); padding: 8px 11px; font-size: 12.5px; }
+  .vault .lbl { color: #b9a6ef; font-size: 11px; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 4px; }
+  .kv { display: grid; grid-template-columns: 110px 1fr; gap: 2px 8px; }
+  .kv .k { color: #a99bd0; }
+  .secret { filter: blur(5px); transition: filter .25s; user-select: none; }
+  body.judge .secret { filter: none; user-select: text; }
+  .shared { padding: 8px 11px; display: flex; flex-wrap: wrap; gap: 5px; }
+  .chip { font-size: 11.5px; background: #1f3a2e; color: #9be7c4; padding: 2px 8px; border-radius: 999px; }
+  .chat { padding: 0 11px 9px; font-size: 12px; }
+  .bubble { margin-top: 5px; padding: 5px 8px; border-radius: 8px; max-width: 95%; }
+  .bubble.agent { background: #262b36; }
+  .bubble.student { background: #33285a; margin-left: auto; }
+  /* feed */
+  .msg { padding: 7px 9px; border-radius: 8px; margin-bottom: 6px; background: var(--panel2); border-left: 3px solid var(--line); }
+  .msg .who { font-weight: 700; font-size: 12px; color: #b8c4ff; }
+  .msg.sys { border-left-color: var(--accent); }
+  .msg.conflict { border-left-color: var(--red); }
+  .msg.deal { border-left-color: var(--green); }
+  .msg.warn { border-left-color: var(--amber); }
+  .msg pre { white-space: pre; font-size: 12px; overflow-x: auto; background: #12151b; padding: 6px; border-radius: 6px; }
+  /* right column */
+  .shield { display: flex; gap: 10px; padding: 12px; }
+  .stat { flex: 1; background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 9px; text-align: center; }
+  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+  .stat.ok b { color: var(--green); } .stat.bad b { color: var(--red); }
+  .stat span { font-size: 11px; color: var(--muted); }
+  .card { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 10px; }
+  .card h3 { margin: 0 0 6px; font-size: 13px; }
+  .tl { position: relative; padding-left: 16px; }
+  .tl .ev { position: relative; margin-bottom: 8px; font-size: 12.5px; }
+  .tl .ev::before { content: ""; position: absolute; left: -12px; top: 5px; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .tl .ev.offer::before { background: var(--accent); } .tl .ev.reject::before { background: var(--red); }
+  .tl .ev.mediator::before { background: var(--amber); } .tl .ev.deal::before { background: var(--green); }
+  .tl .ev.priority::before { background: #c39bff; }
+  .bars { display: grid; grid-template-columns: 70px 1fr 34px; gap: 3px 6px; align-items: center; margin-top: 3px; font-size: 11px; color: var(--muted); }
+  .bar { height: 6px; background: #2a2f3a; border-radius: 3px; overflow: hidden; }
+  .bar i { display: block; height: 100%; background: var(--accent); }
+  .fair { background: #15291f; border: 1px solid #24563c; border-radius: 8px; padding: 8px; margin-top: 6px; font-size: 12.5px; }
+  .task { display: grid; grid-template-columns: 1fr 64px 70px; gap: 6px; align-items: center; font-size: 12px; padding: 4px 0; border-bottom: 1px solid #232733; }
+  .task.help { color: #9be7c4; }
+  .task .p { height: 6px; background: #2a2f3a; border-radius: 3px; overflow: hidden; }
+  .task .p i { display: block; height: 100%; background: var(--green); }
+  .muted { color: var(--muted); }
+  table.cmp { width: 100%; font-size: 12.5px; border-collapse: collapse; }
+  table.cmp td, table.cmp th { padding: 4px 6px; border-bottom: 1px solid #232733; text-align: right; }
+  table.cmp td:first-child, table.cmp th:first-child { text-align: left; }
+  .better { color: var(--green); font-weight: 700; }
+  .empty { color: var(--muted); font-size: 12.5px; padding: 6px 2px; }
+  .listing { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; margin-bottom: 8px; }
+  .listing.active { border-color: var(--accent); }
+  .listing .t { font-weight: 700; } .listing .s { color: var(--muted); font-size: 12px; margin: 2px 0 5px; }
+  .mchip { display: inline-block; font-size: 11.5px; padding: 2px 8px; border-radius: 999px; margin: 2px 3px 0 0; background: #262b36; }
+  .mchip.matched { background: #3a1f3a; color: #ffb3e6; } .mchip.seeker_yes, .mchip.invited { background: #2b2f3d; color: #c9d1ff; }
+  .mchip.seeker_passed, .mchip.owner_passed { background: #2a2a2a; color: #8b93a7; text-decoration: line-through; }
+  .rbar { position: fixed; left: 0; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line);
+          display: flex; align-items: center; gap: 12px; padding: 10px 16px; z-index: 5; }
+  .rbar button { background: var(--accent); color: #0b0d12; border: 0; border-radius: 8px; padding: 7px 12px; font-weight: 700; cursor: pointer; }
+  .rbar button.ghost { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  .rbar input[type=range] { flex: 1; accent-color: var(--accent); }
+  .rbar .cap { flex: 2; min-width: 0; }
+  .rbar .cap b { display: block; font-size: 11px; color: var(--accent); text-transform: uppercase; letter-spacing: .06em; }
+  .rbar .cap span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 13px; }
+  body.replay main { height: calc(100vh - 62px - 66px); }
+  @media (max-width: 1100px) { main { grid-template-columns: 1fr; height: auto; } section { max-height: 80vh; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">Build<span>Pact</span></div>
+  <div class="idea" id="idea">Waiting for an idea…</div>
+  <div class="steps" id="steps"></div>
+  <div class="date" id="date"></div>
+  <button class="toggle" id="judge">👁 Judge view: reveal private vaults</button>
+</header>
+<main>
+  <section>
+    <h2><span>🔒 Agents' private vaults</span><span id="nagents"></span></h2>
+    <div class="scroll" id="agents"></div>
+  </section>
+  <section>
+    <h2><span>🧭 Negotiation table (public)</span><span id="nmsgs"></span></h2>
+    <div class="scroll" id="feed"></div>
+  </section>
+  <section>
+    <h2><span>🛡️ Privacy · ⚖️ Conflicts · 🗓️ Plan</span></h2>
+    <div class="shield" id="shield"></div>
+    <div class="scroll" id="right"></div>
+  </section>
+</main>
+<script>
+const PHASES = ["pool","screening","shortlisted","kickoff","roles","charter","signed","tasks","running"];
+const LABEL = {pool:"Pool",screening:"Handshakes",shortlisted:"Opt-in",kickoff:"Kickoff",roles:"Negotiate",charter:"Charter",signed:"Signed",tasks:"Plan",running:"Running"};
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const md = s => esc(s).replace(/```([\s\S]*?)```/g, "<pre>$1</pre>").replace(/`([^`\n]+)`/g, '<code style="background:#12151b;padding:0 4px;border-radius:4px">$1</code>').replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+                      .replace(/~~(.+?)~~/g, "<s>$1</s>").replace(/\*(.+?)\*/g, "<i>$1</i>").replace(/\n/g, "<br>");
+const pct = x => Math.round((x || 0) * 100) + "%";
+let lastFeed = 0;
+const ST = {done: "✅", review: "👀", changes: "✏️", at_risk: "⚠️", waiting: "⏳", in_progress: "🔄", todo: "⬜"};
+
+document.getElementById("judge").onclick = () => {
+  document.body.classList.toggle("judge");
+  document.getElementById("judge").textContent = document.body.classList.contains("judge")
+    ? "🙈 Hide private vaults" : "👁 Judge view: reveal private vaults";
+};
+
+function renderHeader(s) {
+  document.getElementById("idea").innerHTML = s.idea ? `<b>${esc(s.idea.title)}</b> — “${esc(s.idea.teaser)}”` : "Waiting for an idea…";
+  const i = PHASES.indexOf(s.phase);
+  document.getElementById("steps").innerHTML = PHASES.map((p, j) =>
+    `<span class="step ${j < i ? "done" : j === i ? "now" : ""}">${LABEL[p]}</span>`).join("");
+  document.getElementById("date").textContent = s.today;
+}
+
+function renderAgents(s) {
+  document.getElementById("nagents").textContent = s.agents.length + " agents";
+  const rank = a => a.owner && a.role ? 0 : a.role ? 1 : a.owner ? 2 : 3;
+  const agents = [...s.agents].sort((x, y) => rank(x) - rank(y));
+  document.getElementById("agents").innerHTML = agents.map(a => `
+    <div class="agent">
+      <div class="top"><span class="name">🤖 ${esc(a.name)}</span>
+        ${a.owner ? '<span class="badge owner">idea owner</span>' : ""}
+        ${a.role ? `<span class="badge role">${esc(a.role)}</span>` : ""}
+        ${a.sim ? '<span class="badge">simulated</span>' : '<span class="badge">real student</span>'}</div>
+      <div class="vault"><div class="lbl">🔒 Only this agent knows</div><div class="kv">
+        ${Object.entries(a.private).map(([k, v]) => `<span class="k">${esc(k)}</span><span class="secret">${esc(v)}</span>`).join("")}
+      </div></div>
+      <div class="shared">${a.shared.length ? a.shared.map(x => `<span class="chip">📤 ${esc(x)}</span>`).join("") : '<span class="muted" style="font-size:12px">nothing shared yet</span>'}</div>
+      ${a.chat.length ? `<div class="chat">${a.chat.slice(-3).map(c =>
+        `<div class="bubble ${c.who}"><span class="secret">${md(c.text.replace(/\*\*/g, "").slice(0, 170))}</span></div>`).join("")}</div>` : ""}
+    </div>`).join("") || '<div class="empty">No agents yet — DM the bot or run !demo.</div>';
+}
+
+function renderFeed(s) {
+  const el = document.getElementById("feed");
+  document.getElementById("nmsgs").textContent = s.privacy.public_messages + " messages";
+  if (!RP && s.public.length === lastFeed && el.children.length) return;
+  const atBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 60;
+  lastFeed = s.public.length;
+  el.innerHTML = s.public.map(m => {
+    const t = m.text;
+    const cls = /Conflict|❌/.test(t) ? "conflict" : /Deal reached|Rescue complete|Mutual match|✅|🟢/.test(t) ? "deal"
+              : /Early warning|⚠️|🚨/.test(t) ? "warn" : m.agent === "BuildPact" ? "sys" : "";
+    const where = m.room === "board" ? "📌 board" : m.room === "project" ? "🏠 project room" : "";
+    const who = m.agent === "BuildPact" ? "🧭 BuildPact" : m.agent === "Board" ? "📌 Project board" : "🤖 " + esc(m.agent) + "'s agent";
+    return `<div class="msg ${cls}"><div class="who">${who}${where ? ` <span class="muted" style="font-weight:400">· ${where}</span>` : ""}</div>${md(t)}</div>`;
+  }).join("") || '<div class="empty">The table is quiet.</div>';
+  if (atBottom) el.scrollTop = el.scrollHeight;
+}
+
+function renderRight(s) {
+  const p = s.privacy;
+  document.getElementById("shield").innerHTML = `
+    <div class="stat ${p.leaks.length ? "bad" : "ok"}"><b>${p.leaks.length}</b><span>private details leaked</span></div>
+    <div class="stat"><b>${p.public_messages}</b><span>public messages scanned</span></div>
+    <div class="stat"><b>${p.private_facts}</b><span>private facts held by agents</span></div>`;
+  let html = "";
+  if (s.board && s.board.length) {
+    const label = {invited: "⏳ invited", seeker_yes: "🙋 opted in", matched: "🤝 matched", seeker_passed: "passed", owner_passed: "not a match"};
+    html += `<div class="card"><h3>📌 Project board — double opt-in</h3>` + s.board.map(L => `
+      <div class="listing ${L.active ? "active" : ""}"><div class="t">${esc(L.title)} <span class="muted" style="font-weight:400">· ${esc(L.owner)}</span></div>
+      <div class="s">“${esc(L.teaser)}” · ${L.status === "formed" ? "✅ team formed" : L.open.length ? "open: " + esc(L.open.join(", ")) : "✅ full"}</div>
+      ${L.matches.map(m => `<span class="mchip ${m.state}">${esc(m.name)} · ${esc(m.role)} · ${label[m.state] || m.state}</span>`).join("") || '<span class="muted" style="font-size:12px">no candidates yet</span>'}
+      </div>`).join("") + `</div>`;
+  }
+  for (const c of s.conflicts) {
+    html += `<div class="card"><h3>⚔️ ${esc(c.a)} vs ${esc(c.b)} — ${esc(c.role)} <span class="muted">(${esc(c.stage)})</span></h3><div class="tl">` +
+      c.history.map(h => `<div class="ev ${h.kind}">${md(h.text)}${h.sat && Object.keys(h.sat).length ? `<div class="bars">${
+        Object.entries(h.sat).map(([n, v]) => `<span>${esc(n)}</span><span class="bar"><i style="width:${v * 100}%"></i></span><span>${pct(v)}</span>`).join("")}</div>` : ""}</div>`).join("") +
+      `</div>${c.fairness ? `<div class="fair">✅ <b>Fair deal</b>: ${esc(c.a)} ${pct(c.fairness.a)} · ${esc(c.b)} ${pct(c.fairness.b)} · ${c.fairness.pareto ? "Pareto-optimal ✔" : "not Pareto-optimal"}<br><span class="muted">Each agent scored offers privately; only percentages were shared.</span></div>` : ""}</div>`;
+  }
+  if (s.tasks.length) {
+    const health = s.rescues.length ? `${s.rescues.filter(r => r.status === "rescued").length}/${s.rescues.length} rescues done` : "no risks flagged";
+    html += `<div class="card"><h3>📋 Project tracker · ${esc(s.milestone ? s.milestone.name : "Milestone")} — due ${esc(s.milestone ? s.milestone.due : "")}</h3>
+      <div class="muted" style="font-size:12px;margin-bottom:4px">🩺 ${health}</div>` +
+      s.tasks.map(t => `<div class="task ${t.help ? "help" : ""}"><span>${ST[t.status] || ""} ${esc(t.title)} <span class="muted">· ${esc(t.who)}</span></span>
+        <span class="p"><i style="width:${t.progress}%"></i></span><span class="muted">${esc((t.due || "").slice(5))}</span></div>`).join("") + "</div>";
+  }
+  if (s.class) {
+    const b = s.class.before, a = s.class.after;
+    const row = (k, f, lower) => { const better = lower ? a[k] < b[k] : a[k] > b[k];
+      return `<tr><td>${f}</td><td>${fmt(k, b[k])}</td><td class="${better ? "better" : ""}">${fmt(k, a[k])}</td></tr>`; };
+    const fmt = (k, v) => k === "coverage" ? pct(v) : k === "goal_clashes" ? v : k === "hours_gap" ? v.toFixed(1) + "h" : v.toFixed(2);
+    html += `<div class="card"><h3>📚 Class mode — ${s.class.students} students → ${s.class.teams.length} teams</h3>
+      <table class="cmp"><tr><th></th><th>random</th><th>BuildPact</th></tr>
+      ${row("coverage", "role coverage")}${row("strength_spread", "strength gap", true)}${row("goal_clashes", "goal clashes", true)}${row("hours_gap", "avg hours gap", true)}</table></div>`;
+  }
+  document.getElementById("right").innerHTML = html || '<div class="empty">Conflicts, fairness proofs and the plan appear here.</div>';
+}
+
+// ------------------------------------------------------------- replay mode
+const RP = window.BP_REPLAY || new URLSearchParams(location.search).get("replay");
+let R = null, fi = 0, shown = 0, playing = false, speed = 1;
+
+function renderFrame() {
+  const f = R.frames[fi];
+  const s = Object.assign({}, f.state, {public: R.public.slice(0, Math.min(shown, f.pub)).slice(-80)});
+  s.privacy = Object.assign({}, s.privacy, {public_messages: Math.min(shown, f.pub)});
+  renderHeader(s); renderAgents(s); renderFeed(s); renderRight(s);
+  document.getElementById("rslider").value = fi;
+  document.getElementById("rcap").innerHTML = `<b>${esc(f.act)} · step ${fi + 1}/${R.frames.length}</b><span>${esc(f.caption)}</span>`;
+  document.getElementById("rplay").textContent = playing ? "⏸ Pause" : "▶ Play";
+}
+
+function jump(i) {
+  fi = Math.max(0, Math.min(R.frames.length - 1, i));
+  shown = R.frames[fi].pub; lastFeed = -1; renderFrame();
+}
+
+async function replayLoop() {
+  while (true) {
+    await new Promise(r => setTimeout(r, 450 / speed));
+    if (!playing) continue;
+    const f = R.frames[fi];
+    if (shown < f.pub) { shown++; renderFrame(); continue; }
+    await new Promise(r => setTimeout(r, 700 / speed));
+    if (fi < R.frames.length - 1) { fi++; renderFrame(); } else { playing = false; renderFrame(); }
+  }
+}
+
+async function startReplay(url) {
+  document.body.classList.add("replay");
+  R = await (await fetch(url)).json();
+  const bar = document.createElement("div");
+  bar.className = "rbar";
+  bar.innerHTML = `<button id="rplay">▶ Play</button><button class="ghost" id="rprev">⏮</button><button class="ghost" id="rnext">⏭</button>
+    <button class="ghost" id="rspeed">1×</button><input type="range" id="rslider" min="0" max="${R.frames.length - 1}" value="0">
+    <div class="cap" id="rcap"></div>`;
+  document.body.appendChild(bar);
+  document.getElementById("rplay").onclick = () => { playing = !playing; if (playing && fi === R.frames.length - 1 && shown >= R.frames[fi].pub) jump(0); renderFrame(); };
+  document.getElementById("rprev").onclick = () => { playing = false; jump(fi - 1); };
+  document.getElementById("rnext").onclick = () => { playing = false; jump(fi + 1); };
+  document.getElementById("rspeed").onclick = e => { speed = speed === 1 ? 2 : speed === 2 ? 4 : 1; e.target.textContent = speed + "×"; };
+  document.getElementById("rslider").oninput = e => { playing = false; jump(+e.target.value); };
+  fi = 0; shown = 0; renderFrame(); replayLoop();
+}
+
+async function tick() {
+  try {
+    const s = await (await fetch("/state", {cache: "no-store"})).json();
+    renderHeader(s); renderAgents(s); renderFeed(s); renderRight(s);
+  } catch (e) { document.getElementById("date").textContent = "reconnecting…"; }
+}
+if (RP) startReplay(RP); else { tick(); setInterval(tick, 1000); }
+</script>
+</body>
+</html>
